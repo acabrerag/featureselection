@@ -14,12 +14,12 @@ for line in requirements:
         required.append(line)
 
 setup(
-    name='featureselection',
+    name='example',
     version='0.0.3',
     author='',
     author_email='',
     description='Library for machine learning models',
-    packages=find_packages('featureselection'),
+    packages=find_packages(include=['featureselection','featureselection.*']),
     url='',
     license='LICENSE',
     include_package_data=True,
