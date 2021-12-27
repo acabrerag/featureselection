@@ -19,7 +19,7 @@ setup(
     author='',
     author_email='',
     description='Library for machine learning models',
-    packages=find_packages('module'),
+    packages=find_packages('featureselection'),
     url='',
     license='LICENSE',
     include_package_data=True,
