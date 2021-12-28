@@ -12,7 +12,7 @@ import statsmodels.discrete.discrete_model as sm
 from monotonic_binning import monotonic_woe_binning as bin
 from optbinning import OptimalBinning
 from optbinning.binning.binning_statistics import BinningTable
-from tsfresh.utilities.dataframe_functions import impute
+from tsfresh.utilities.dataframe_functions import impute, impute_dataframe_zero
 from varclushi import VarClusHi
 from xverse.transformer import MonotonicBinning
 
@@ -293,7 +293,7 @@ class Binning():
         if method == "optbinning":
             for variable in variables:
                 optb = OptimalBinning(name=variable, dtype=dtype, solver="cp")
-                optb.fit(self.data[variable], self.data[self.target])
+                optb.fit(impute_dataframe_zero(self.data[[variable]])[variable], self.data[self.target])
                 if dtype == "numerical":
                     output_bins.update({variable: list(optb.splits)})
                 else:
