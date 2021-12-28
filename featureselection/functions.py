@@ -5,7 +5,7 @@ import pandas as pd
 import ppscore as pps
 from pandas import DataFrame
 from toolz import curry
-from tsfresh.utilities.dataframe_functions import impute
+from tsfresh.utilities.dataframe_functions import impute_dataframe_range, get_range_values_per_column
 from varclushi import VarClusHi
 
 from .scorecard import ScorecardSelector
@@ -360,3 +360,27 @@ def cramers_corrected_stat(x: pd.Series, y: pd.Series, nan_encoder: bool = True)
                 return 0
             result = np.sqrt(phi2corr / min((kcorr - 1), (rcorr - 1)))
     return round(result, 6)
+
+
+def impute(df_impute):
+    """
+    Columnwise replaces all ``NaNs`` and ``infs`` from the DataFrame `df_impute` with average/extreme values from
+    the same columns. This is done as follows: Each occurring ``inf`` or ``NaN`` in `df_impute` is replaced by
+
+        * ``-inf`` -> ``min``
+        * ``+inf`` -> ``max``
+        * ``NaN`` -> ``median``
+
+    If the column does not contain finite values at all, it is filled with zeros.
+
+    This function modifies `df_impute` in place. After that, df_impute is guaranteed to not contain any non-finite
+    values. Also, all columns will be guaranteed to be of type ``np.float64``.
+
+    :param df_impute: DataFrame to impute
+    :type df_impute: pandas.DataFrame
+
+    :return df_impute: imputed DataFrame
+    :rtype df_impute: pandas.DataFrame
+    """
+    col_to_max, col_to_min, col_to_median = get_range_values_per_column(df_impute)
+    return impute_dataframe_range(df_impute, col_to_max, col_to_min, col_to_median).astype(np.float64, copy=False)
