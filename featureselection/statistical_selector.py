@@ -14,8 +14,8 @@ from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 from tsfresh.utilities.dataframe_functions import impute, impute_dataframe_zero
 
-from utils import corr_matrix, roc_weighted, corr_xy, chi, ks, check_dtype, read_csv_batch
-from utils import get_numeric, get_caps_floors
+from utilsfun import corr_matrix, roc_weighted, corr_xy, chi, ks, check_dtype, read_csv_batch
+from utilsfun import get_numeric, get_caps_floors
 from feature_selector import FeatureSelector
 
 
