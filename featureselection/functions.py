@@ -13,7 +13,7 @@ from .statistical_selector import StatisticalSelector
 from .feature_selector import FeatureSelector
 import gc
 from itertools import combinations
-from typing import List, Optional
+from typing import List
 import numpy as np
 import scipy.stats as stats
 from sklearn.metrics import confusion_matrix, roc_auc_score
@@ -303,14 +303,7 @@ def SelectKBest(result: dict, types_features="numerical", type_target="bad", k: 
     return features[0:min(k, len(features))]
 
 
-def roc_weighted(y_test, y_pred):
-    """
-    compute the roc score
-    y_test: actual label
-    y_pred:probabitily prediction
 
-    """
-    return roc_auc_score(y_test, y_pred, average='weighted')
 
 
 def weighted(y_test, y_pred, wb=0.7):

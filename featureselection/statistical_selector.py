@@ -1,25 +1,25 @@
-import gc
-import json
 import multiprocessing as mp
-import os
 from datetime import date
-from itertools import chain
+from itertools import chain, combinations
 from typing import List
+import scipy.stats as stats
 
 import numpy as np
 import pandas as pd
 from fklearn.training.transformation import onehot_categorizer
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_auc_score
 from sklearn.model_selection import train_test_split
-from tsfresh.utilities.dataframe_functions import impute, impute_dataframe_zero
-
-from utilsfun import corr_matrix, roc_weighted, corr_xy, chi, ks, check_dtype, read_csv_batch
-from utilsfun import get_numeric, get_caps_floors
-from feature_selector import FeatureSelector
 
 
-today = date.today().strftime("%Y-%m-%d")
+def roc_weighted(y_test, y_pred):
+    """
+    compute the roc score
+    y_test: actual label
+    y_pred:probabitily prediction
+
+    """
+    return roc_auc_score(y_test, y_pred, average='weighted')
 
 
 class StatisticalSelector(object):
@@ -221,8 +221,8 @@ class StatisticalSelector(object):
                            step=5, removed=[1 if k in removed_features else 0 for k in old_selection],
                            step_5=[res["p_values"][k] for k in old_selection], step_5_threshold=res["alpha"])
         else:
-            selected_features=features
-            removed_features=[]
+            selected_features = features
+            removed_features = []
             print("stat_selector not used")
 
         print("Step 6 for {0} features".format(types_columns))
@@ -236,12 +236,12 @@ class StatisticalSelector(object):
             selected_features = res["selected"]["best"]
             update_tracker(self.tracker, feature=old_selection, type=types_columns,
                            step=6, removed=[0 if k in selected_features else 1 for k in old_selection],
-                           step_6=[best_dict[k] for k in old_selection], step_6_threshold=res["thresholds"]["lower_best"])
+                           step_6=[best_dict[k] for k in old_selection],
+                           step_6_threshold=res["thresholds"]["lower_best"])
         else:
             selected_features = features
             removed_features = []
             print("cm_selector not used")
-
 
         print("Step 7 for {0} features".format(types_columns))
 
@@ -283,7 +283,7 @@ class StatisticalSelector(object):
             good_feats = features
             bad_feats = features
             best_feats = features
-            res_dict={}
+            res_dict = {}
             print("correlation_selector not used")
 
         return {"selected": {"good": good_feats, "bad": bad_feats, "best": best_feats}, "all": res_dict}
@@ -334,219 +334,6 @@ class StatisticalSelector(object):
                         "best": {"numerical": best, "categorical": best_ob}}}
 
 
-def klar_feature_selection(params: dict, df: pd.DataFrame = None):
-    """
-    Function to perform feature selection
-    """
-    """
-    Reading the json with the parameters
-    dir: directory with the dataset
-    name: dataset name
-    output_dir: directory for the output files
-    chunksize: number of columns to split the dataset and process it, 
-                default is -1 and that means the whole dataset will be used in a single split 
-    n_jobs: number of cores to use
-    missing_breaks: list of breaks to split the interval (0,1) representing the missing value percentage
-                    the script create the missing_ranges to analyze the features based on the missing_breaks
-    forbidden_features: List of feature to not be considered in the feature selection process
-    target: target column name
-    basic_features: List of automatically selected features, they are excluded in the feature selection process
-                    and will be put in the final result
-    index_featues: Features need it in each split
-    final_name: name of the final dataset
-    Returns
-    """
-    tracker = new_tracker(["feature", "type", "step", "removed", "step_2", "step_5",
-                           "step_6", "step_2_threshold", "step_5_threshold", "step_6_threshold"])
-    input_dir = params.get("dir", "")
-    output_dir = params.get("output_dir", input_dir)
-    n_jobs = int(params.get("n_jobs", 2))
-    missing_breaks = params.get("missing_breaks", [x * 0.1 for x in range(1, 10)])
-    max_missing_percentage = params.get("max_missing_percentage", 0.8)
-    target = params.get("target", "output")
-    forbidden_features = params.get("forbidden_features", [])
-    index_features = params.get("index_features", ["id_loan", "vintage"])
-    basic_features = params.get("basic_features", [])
-    final_name = params.get("final_name", "ds_selected")
-    missing_ranges = [(-0.1, missing_breaks[0])] + [(e, missing_breaks[n + 1]) for n, e in
-                                                    enumerate(missing_breaks[:-1])] + [(missing_breaks[-1], 1)]
-
-    path_dir = "{0}/splits".format(output_dir)
-    if not os.path.exists(path_dir):
-        os.makedirs(path_dir)
-
-    if df is None:
-        df = read_csv_batch("{0}/{1}".format(input_dir, params.get("name", "remove_low_information.csv")))
-    labels = df[target].replace(params["good"], 0).replace(params["bad"], 1)
-
-    basic_features = list(set(basic_features) & set(df.columns.to_list()))
-    df_basic = df[index_features + basic_features]
-    df = df[set(df.columns) - set(forbidden_features)]
-    # Remove the basic features from the dataframe
-    df = df[df.columns.difference(basic_features)]
-    feats = list(set(df.columns) - set([target]))
-    number_columns, object_columns = get_numeric(df[feats])
-    print("Step 1: remove for single unique value")
-    # Step 1: remove for single unique value
-    fs = FeatureSelector(data=df, random_state=0)
-    fs.identify_single_unique()
-    df = fs.remove(methods=["single_unique"], keep_one_hot=False)
-
-    old_selection = feats
-    removed_features = fs.removed_features
-    selected_features = list(set(old_selection) - set(removed_features))
-
-    update_tracker(tracker=tracker, feature=old_selection,
-                   type=["numerical" if x in number_columns else "categorical" for x in old_selection]
-                   , step=1, removed=[1 if x in removed_features else 0 for x in old_selection])
-
-    # Step 2: remove for missing percentage threshold
-    print("Step 2: remove for missing percentage threshold")
-    fs = FeatureSelector(data=df, random_state=0)
-    fs.identify_missing(missing_threshold_min=-0.1, missing_threshold_max=max_missing_percentage)
-    missing_fraction = fs.missing_stats.to_dict()["missing_fraction"]
-    df = fs.remove(methods=['missing'], keep_one_hot=False)
-    old_selection = selected_features
-    removed_features = fs.removed_features
-    selected_features = list(set(old_selection) - set(removed_features))
-    update_tracker(tracker=tracker, feature=old_selection,
-                   type=["numerical" if x in number_columns else "categorical" for x in old_selection]
-                   , step=2, removed=[1 if x in removed_features else 0 for x in old_selection],
-                   step_2=[missing_fraction[k] for k in old_selection], step_2_threshold=max_missing_percentage)
-
-    for (t_min, t_max) in list(filter(lambda x: x[1] <= max_missing_percentage, missing_ranges)):
-        print("Step 3: Remove zero importance for ({0},{1})".format(t_min, t_max))
-        fs = FeatureSelector(data=df, random_state=0)
-        fs.identify_missing(missing_threshold_min=t_min, missing_threshold_max=t_max)
-        ds = fs.remove(methods=['missing'], keep_one_hot=False)
-        if ds.shape[1] > 1:
-            # Step 3: Remove zero importance
-            #todo review zero importance
-            fs = FeatureSelector(data=ds, labels=labels, random_state=0)
-            fs.identify_zero_importance("classification",
-                                        **params.get("importances", {}).get("identify_zero_importance", {}))
-
-            # Keep the feature if one of its dummies is saved
-            oh = fs.one_hot_features
-            ds_aux = fs.remove(methods=['zero_importance'], keep_one_hot=False)
-            removed_oh = set(["_".join(f.split("_")[:-1]) for f in list(set(fs.removed_features) & set(oh))])
-            keep_oh = set(["_".join(f.split("_")[:-1]) for f in set(oh) & set(ds_aux.columns.to_list())])
-            del ds_aux
-            gc.collect()
-            old_selection = list(ds.columns)
-            removed_features = list(removed_oh - keep_oh) + list(set(fs.removed_features) - set(oh))
-            selected_features = list(set(old_selection) - set(removed_features))
-
-            update_tracker(tracker=tracker, feature=old_selection,
-                           type=["numerical" if x in number_columns else "categorical" for x in old_selection]
-                           , step=3, removed=[1 if x in removed_features else 0 for x in old_selection])
-
-            ds = ds[selected_features]
-            print("Step 4: Remove low importance for ({0},{1})".format(t_min, t_max))
-            #Todo review low importance
-            fs = FeatureSelector(data=ds, labels=labels, random_state=0)
-            fs.identify_zero_importance(task="classification",
-                                        **params.get("importances", {}).get("identify_low_importance", {}).get(
-                                            "identify_zero_importance", {}))
-            fs.identify_low_importance(cumulative_importance=params.get("importances", {}).get(
-                "identify_low_importance", {}).get(
-                "cumulative_importance", 0.95))
-
-            # Step 4: remove for low importance, cumulative importance
-            # Keep the feature if one of its dummies is saved
-            oh = fs.one_hot_features
-            ds_aux = fs.remove(methods=['zero_importance', 'low_importance'], keep_one_hot=False)
-            removed_oh = set(["_".join(f.split("_")[:-1]) for f in list(set(fs.removed_features) & set(oh))])
-            keep_oh = set(["_".join(f.split("_")[:-1]) for f in set(oh) & set(ds_aux.columns.to_list())])
-            del ds_aux
-            gc.collect()
-            old_selection = selected_features
-            removed_features = list(removed_oh - keep_oh) + list(set(fs.removed_features) - set(oh))
-            selected_features = list(set(old_selection) - set(removed_features))
-
-            update_tracker(tracker=tracker, feature=old_selection,
-                           type=["numerical" if x in number_columns else "categorical" for x in old_selection]
-                           , step=4, removed=[1 if x in removed_features else 0 for x in old_selection])
-
-            ds = ds[selected_features]
-            if ds.shape[1] > 0:
-                ds.to_csv("{0}/reduced_{1}_{2}.csv".format(path_dir, t_min, t_max), index=False)
-            else:
-                print("Not selected features in ({0},{1})".format(t_min, t_max))
-        else:
-            print("There is not features to be considered in ({0},{1})".format(t_min, t_max))
-
-    """
-    merge the datasets (missing percentage ranges) in a single one for the feature selection considering the max_missing_percentage
-    """
-    dfs = [df_basic[index_features]]
-
-    for arch in list(map(lambda y: "reduced_{0}_{1}.csv".format(y[0], y[1]),
-                         filter(lambda x: x[1] <= max_missing_percentage, missing_ranges))):
-        if os.path.isfile("{0}/{1}".format(path_dir, arch)):
-            dfs.append(pd.read_csv("{0}/{1}".format(path_dir, arch), low_memory=False))
-    df_full = pd.concat(dfs, axis=1)
-    del dfs
-    gc.collect()
-    df_full = df_full.loc[:, ~df_full.columns.duplicated()]
-    df_full = df_full.drop(columns=[col for col in df_full.columns if "id_loan." in col])
-    df_full[target] = labels
-    df_full.to_csv("{0}/ds_full.csv".format(path_dir), index=False)
-
-    """
-    Use the StatisticalSelector class for feature selection.
-    """
-    df_full = df_full.replace([np.inf, -np.inf], np.nan)
-    features = list(set(df_full.columns) - set(forbidden_features))
-    numeric_features = [col for col in features if df_full[col].dtype not in ['object']]
-    impute_method = params.get("impute_method", "zero")
-    df_full[numeric_features] = impute(
-        df_full[numeric_features]) if impute_method == "median" else impute_dataframe_zero(
-        df_full[numeric_features])
-    ss = StatisticalSelector(df_full, target, params.get("random_state", 0))
-    res = ss.select_features(features, n_jobs=n_jobs, **params.get("select_features", {}))
-    tracker2 = ss.tracker
-
-    """
-    Save the result: 
-        list with features for good/bad/best prediction and type numerical/categorial
-        dataframe with the selected features + basic features
-    """
-    features = res["selected"]["best"]
-    for k in ["good", "bad", "best"]:
-        with open('{0}/features_{1}.txt'.format(output_dir, k), 'w') as filehandle:
-            for listitem in res["selected"][k]:
-                filehandle.write('%s\n' % listitem)
-
-    with open("{0}/result.json".format(output_dir), 'w') as json_file:
-        json.dump(res["all"], json_file)
-    json_file.close()
-
-    update_tracker(tracker=tracker, **tracker2)
-
-    update_tracker(tracker=tracker, feature=features,
-                   type=["numerical" if x in number_columns else "categorical" for x in features]
-                   , step=8, removed=0)
-
-    tracker["date"] = today
-    tracker["model"] = params.get("model", "risk_model")
-
-    features = list(set(features + basic_features)) + [target] + index_features
-    del df_full
-    gc.collect()
-    df = read_csv_batch("{0}/{1}".format(input_dir, params.get("name", "remove_low_information.csv")),
-                        usecols=features,
-                        low_memory=False)
-
-    df[features].to_csv("{0}/{1}.csv".format(output_dir, final_name), index=False)
-
-    with open("{0}/tracker.json".format(output_dir), 'w') as json_file:
-        json.dump(tracker, json_file)
-    json_file.close()
-    pd.DataFrame(tracker).to_csv("{0}/tracker.csv".format(output_dir), index=False)
-    return {"selected": features, "basic": basic_features, "track": tracker}
-
-
 def new_tracker(fields):
     return {f: [] for f in fields}
 
@@ -567,3 +354,183 @@ def update_tracker(tracker, feature, **kwargs):
     for k in missing_fields:
         aux(k, -1)
     return tracker
+
+
+def corr_matrix(df: pd.DataFrame, features: List[str], types_columns: str = "numerical", n_jobs: int = 1, **kwargs):
+    if types_columns == "numerical":
+        corr_matrix = df[features].corr()
+    else:
+        nan_encoder = kwargs.get("nan_encoder", True)
+        comb = list(combinations(features, 2))
+        iterat = [[df[feat1], df[feat2], nan_encoder] for feat1, feat2 in comb]
+
+        pool = mp.Pool(n_jobs)
+        results = pool.starmap(cramers_corrected_stat, iterat)
+        pool.close()
+        corr_matrix = pd.DataFrame(columns=features, index=features)
+        for i, (col1, col2) in enumerate(comb):
+            corr_matrix[col1][col2] = results[i]
+            corr_matrix[col2][col1] = corr_matrix[col1][col2]
+            corr_matrix[col2][col2] = 1
+    return corr_matrix
+
+
+def pearson(x, y):
+    return np.corrcoef(x, y)[0][1]
+
+
+def corr_xy(df: pd.DataFrame, features: List[str], target: str, types_columns: str, n_jobs: int = 1):
+    """
+    function to compute the correlation between features and a target
+    Use Pearson correlation for numeric features: target need to be numeric
+    Use Cramers phi for categorical features: target need to be categorical
+    """
+
+    if types_columns == "numerical":
+        if df[target].dtype == object:
+            df[target] = df[target].astype(int)
+            raise Exception("mixed types")
+        iterat = [[df[feat], df[target]] for feat in features]
+        pool = mp.Pool(n_jobs)
+        results = pool.starmap(pearson, iterat)
+    else:
+        iterat = [[df[feat], df[target]] for feat in features]
+        pool = mp.Pool(n_jobs)
+        results = pool.starmap(cramers_corrected_stat, iterat)
+    pool.close()
+    corxy_dict = dict(zip(features, results))
+    return corxy_dict
+
+
+def ks(x, y):
+    return stats.ks_2samp(x, y)[1]
+
+
+def chi(conf_matrix):
+    return stats.chi2_contingency(conf_matrix, correction=conf_matrix.shape[0] != 2)[1]
+
+
+def check_dtype(df, features):
+    features_type = {"numerical": set([col for col in features if df[col].dtype not in ['object']])}
+    features_type.update({"categorical": set(features) - features_type["numerical"]})
+    features_type.update({"nan": set([col for col in features_type["numerical"] if len(df) == df[col].isna().sum()])})
+
+    return features_type
+
+
+def outlier_treatment(datacolumn: pd.core.series.Series, quantil=[25, 75], multiplier=1.5) -> tuple:
+    Q1, Q3 = np.nanpercentile(datacolumn, quantil)
+    IQR = Q3 - Q1
+    lower_range = Q1 - (multiplier * IQR)
+    upper_range = Q3 + (multiplier * IQR)
+    return lower_range, upper_range
+
+
+def get_numeric(df: pd.DataFrame) -> tuple:
+    object_columns = []
+    number_columns = []
+
+    for col in df:
+        if (df[col].dtype == object) | (df[col].dtype == bool):
+            object_columns.append(col)
+        else:
+            number_columns.append(col)
+    return number_columns, object_columns
+
+
+def get_caps_floors(df: pd.DataFrame, quantil=[25, 75], multiplier=1.5) -> tuple:
+    number_columns, object_columns = get_numeric(df)
+    no_floor_cap_var = [col for col in number_columns if df[col].median() == 0]
+    floor_cap_var = list(set(number_columns) - set(no_floor_cap_var))
+    precomputed_caps = {}
+    precomputed_floors = {}
+    for column in floor_cap_var:
+        l, u = outlier_treatment(df[column], quantil, multiplier)
+        precomputed_floors[column] = float(l)
+        precomputed_caps[column] = float(u)
+
+    return precomputed_caps, precomputed_floors
+
+
+def SelectKBest(result: dict, types_features="numerical", type_target="bad", k: int = 5):
+    features = list(result[type_target][types_features].keys())
+    return features[0:min(k, len(features))]
+
+
+def roc_weighted(y_test, y_pred):
+    """
+    compute the roc score
+    y_test: actual label
+    y_pred:probabitily prediction
+
+    """
+    return roc_auc_score(y_test, y_pred, average='weighted')
+
+
+def weighted(y_test, y_pred, wb=0.7):
+    cm = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = np.array(cm).ravel()
+    good = (1 / (tn + fp)) * tn
+    bad = (1 / (fn + tp)) * tp
+    return (1 - wb) * good + wb * bad
+
+
+def good(y_test, y_pred):
+    cm = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = np.array(cm).ravel()
+    return (1 / (tn + fp)) * tn
+
+
+def bad(y_test, y_pred):
+    cm = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = np.array(cm).ravel()
+    return (1 / (fn + tp)) * tp
+
+
+def list_to_file(list: List, path: str):
+    import pickle
+    with open(path, 'wb') as filehandle:
+        pickle.dump(list, filehandle)
+
+
+def cramers_corrected_stat(x: pd.Series, y: pd.Series, nan_encoder: bool = True):
+    """ calculate Cramers V statistic for categorial-categorial association.
+        uses correction from Bergsma and Wicher,
+        Journal of the Korean Statistical Society 42 (2013): 323-328
+    """
+
+    """
+    For nan we will create another category in the fist     
+    """
+    if nan_encoder:
+        x = x.fillna("cramers_corrected_stat_nan")
+        y = y.fillna("cramers_corrected_stat_nan")
+    result = np.nan
+    if len(x.value_counts()) == 1:
+        print("First variable is constant")
+    elif len(y.value_counts()) == 1:
+        print("Second variable is constant")
+    else:
+        conf_matrix = pd.crosstab(x, y)
+        if conf_matrix.shape != (0, 0):
+
+            if conf_matrix.shape[0] == 2:
+                correct = False
+            else:
+                correct = True
+
+            chi2 = stats.chi2_contingency(conf_matrix, correction=correct)[0]
+            n = sum(conf_matrix.sum())
+            if n == 1:
+                return 0
+            phi2 = chi2 / n
+            r, k = conf_matrix.shape
+            phi2corr = max(0, phi2 - ((k - 1) * (r - 1)) / (n - 1))
+            if phi2corr == 0:
+                return 0
+            rcorr = r - ((r - 1) ** 2) / (n - 1)
+            kcorr = k - ((k - 1) ** 2) / (n - 1)
+            if min((kcorr - 1), (rcorr - 1)) == 0:
+                return 0
+            result = np.sqrt(phi2corr / min((kcorr - 1), (rcorr - 1)))
+    return round(result, 6)
