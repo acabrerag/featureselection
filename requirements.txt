@@ -13,3 +13,4 @@ matplotlib==3.4.1
 seaborn==0.11.1
 lightgbm
 optbinning
+fklearn
