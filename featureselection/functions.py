@@ -235,7 +235,6 @@ def corr_xy(df: pd.DataFrame, features: List[str], target: str, types_columns: s
     if types_columns == "numerical":
         if df[target].dtype == object:
             df[target] = df[target].astype(int)
-            raise Exception("mixed types")
         iterat = [[df[feat], df[target]] for feat in features]
         pool = mp.Pool(n_jobs)
         results = pool.starmap(pearson, iterat)
