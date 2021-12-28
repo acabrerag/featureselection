@@ -11,12 +11,11 @@ from varclushi import VarClusHi
 from .scorecard import ScorecardSelector
 from .statistical_selector import StatisticalSelector
 from .feature_selector import FeatureSelector
-import gc
 from itertools import combinations
 from typing import List
 import numpy as np
 import scipy.stats as stats
-from sklearn.metrics import confusion_matrix, roc_auc_score
+from sklearn.metrics import confusion_matrix
 
 pd.options.mode.chained_assignment = None
 
@@ -130,16 +129,9 @@ def n_select(clusters, percentage):
 
 @curry
 def varclus_filter(data: DataFrame, features: List, params: dict):
-    data_dummies = pd.get_dummies(data[features], prefix_sep="_varclus_")
-    data_dummies = impute(data_dummies)
-    demo1_vc = VarClusHi(data_dummies, maxeigval2=1, maxclus=None)
-
-    # real_columns, categorical_columns, binary_columns = get_feature_type(data, features)
-    # data[real_columns + binary_columns] = impute(data[real_columns + binary_columns])
-    # demo1_vc = VarClusHi(data[real_columns + binary_columns], maxeigval2=1, maxclus=None)
+    demo1_vc = VarClusHi(impute(pd.get_dummies(data[features], prefix_sep="_varclus_")), maxeigval2=1, maxclus=None)
     clusters = list(map(lambda x: x.clus, list(demo1_vc.varclus().clusters.values())))
     approved = list(set([x.split("_varclus_")[0] for x in sum(n_select(clusters, params.get("percentage", None)), [])]))
-    # approved = sum(n_select(clusters, params.get("percentage", None)), []) + categorical_columns
     not_approved = list(set(features) - set(approved))
     return data, approved, not_approved, {
         "varclus_filter": {"approved": approved,
@@ -300,9 +292,6 @@ def get_caps_floors(df: pd.DataFrame, quantil=[25, 75], multiplier=1.5) -> tuple
 def SelectKBest(result: dict, types_features="numerical", type_target="bad", k: int = 5):
     features = list(result[type_target][types_features].keys())
     return features[0:min(k, len(features))]
-
-
-
 
 
 def weighted(y_test, y_pred, wb=0.7):
