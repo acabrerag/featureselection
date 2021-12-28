@@ -13,3 +13,4 @@ xverse
 monotonic-binning
 scorecardpy
 lightgbm
+optbinning
