@@ -9,10 +9,10 @@ from toolz import curry
 from tsfresh.utilities.dataframe_functions import impute
 from varclushi import VarClusHi
 
-from scorecard import ScorecardSelector
-from statistical_selector import StatisticalSelector
-from utils import corr_matrix, corr_xy, chi, ks
-from feature_selector import FeatureSelector
+from .scorecard import ScorecardSelector
+from .statistical_selector import StatisticalSelector
+from .utils import corr_matrix, corr_xy, chi, ks
+from .feature_selector import FeatureSelector
 
 pd.options.mode.chained_assignment = None
 
