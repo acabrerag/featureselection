@@ -59,7 +59,7 @@ def statistical_test(data: DataFrame, features: List, params: dict):
     target = params["target"]
     n_jobs = params.get("n_jobs", 1)
     real_columns, categorical_columns, binary_columns = get_feature_type(data, features)
-    # data[real_columns] = impute(data[real_columns])
+    data[real_columns] = impute(data[real_columns])
     df_0 = data[data[target] == 0]
     df_1 = data[data[target] == 1]
     p_values = {}
