@@ -14,7 +14,7 @@ for line in requirements:
         required.append(line)
 
 setup(
-    name='example',
+    name='featureselection',
     version='0.0.3',
     author='',
     author_email='',

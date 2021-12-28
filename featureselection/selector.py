@@ -7,7 +7,7 @@ from sklearn import preprocessing
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import RobustScaler
 
-from featureselection.module.feature_selector import FeatureSelector
+from featureselection.feature_selector import FeatureSelector
 
 from sklearn.utils import class_weight
 from sklearn.model_selection import RepeatedStratifiedKFold
