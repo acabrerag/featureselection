@@ -2,40 +2,10 @@ import gc
 import multiprocessing as mp
 from itertools import combinations
 from typing import List, Optional
-import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
 from sklearn.metrics import confusion_matrix, roc_auc_score
-
-
-
-def read_csv_batch(name, **kwargs) -> pd.DataFrame:
-    return pd.concat([x for x in pd.read_csv("{0}".format(name),
-                                             chunksize=kwargs.pop("chunksize", 500),
-                                             low_memory=kwargs.pop("low_memory", False), **kwargs)])
-
-
-def read_csv_batch_dask(name, **kwargs) -> pd.DataFrame:
-    """
-    read a dataframe in row batches. . This function needs lower RAM than pd.read_csv
-    Parameters
-    ----------
-    name
-    kwargs
-    Returns
-    -------
-    """
-    chunksize = kwargs.pop("chunksize", 10000)
-    low_memory = kwargs.pop("low_memory", False)
-
-    chunk_list = []
-    df_test = pd.read_csv("{0}".format(name), chunksize=chunksize, low_memory=low_memory, **kwargs)
-    for chunk in df_test:
-        chunk_list.append(dd.from_pandas(chunk, npartitions=10))
-    del df_test
-    gc.collect()
-    return dd.multi.concat(chunk_list)
 
 
 def SelectKBest(result: dict, types_features="numerical", type_target="bad", k: int = 5):
@@ -154,7 +124,7 @@ def corr_xy(df: pd.DataFrame, features: List[str], target: str, types_columns: s
 
     if types_columns == "numerical":
         if df[target].dtype == object:
-            df[target]=df[target].astype(int)
+            df[target] = df[target].astype(int)
             raise Exception("mixed types")
         iterat = [[df[feat], df[target]] for feat in features]
         pool = mp.Pool(n_jobs)
