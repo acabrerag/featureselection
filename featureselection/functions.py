@@ -46,7 +46,6 @@ def clear_filter(data: DataFrame, features: List, params: dict):
     fs.identify_missing(missing_threshold_min=-0.1,
                         missing_threshold_max=params.get("missing_threshold_max", 0.8))
     data = fs.remove(methods=['missing'], keep_one_hot=False)
-    data = data.T.drop_duplicates().T
     approved = data.columns.to_list()
     not_approved = list(set(features) - set(approved))
 
