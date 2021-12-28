@@ -195,7 +195,7 @@ def feature_importance_filter(data: DataFrame, features: List, params: dict):
 
 def corr_matrix(df: pd.DataFrame, features: List[str], types_columns: str = "numerical", n_jobs: int = 1, **kwargs):
     if types_columns == "numerical":
-        corr_matrix = df[features].corr()
+        return df[features].corr()
     else:
         nan_encoder = kwargs.get("nan_encoder", True)
         comb = list(combinations(features, 2))
