@@ -332,7 +332,7 @@ class Binning():
         Use scorecardpy library.
         Returns a dict with a summary table for each feature-
         """
-        no_cores = kwargs.get("no_cores", None)
+        no_cores = kwargs.get("no_cores", 7)
         if breaks_adj is None:
             if self.bins is None:
                 self.binning(no_cores=no_cores)
