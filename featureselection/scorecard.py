@@ -308,6 +308,7 @@ class Binning():
                 raise NotImplementedError('%s method has not been run for categorical features.' % method)
 
         elif method == "scorecardpy":
+            print(len(variables),method,no_cores)
             output_bins = sc.woebin(self.data[variables + [self.target]], y=[self.target], no_cores=no_cores)
             output_bins = {k: v["breaks"] for k, v in output_bins.items()}
         elif method == "monotonic_binning":
