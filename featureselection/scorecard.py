@@ -333,12 +333,13 @@ class Binning():
         no_cores = kwargs.get("no_cores", None)
         if breaks_adj is None:
             if self.bins is None:
-                self.binning(no_cores=no_cores,method=kwargs.get("method","scorecardpy"), **kwargs)
+                self.binning(no_cores=no_cores, method=kwargs.get("method", "optbinning"), **kwargs)
             breaks_adj = self.bins
         variables = [var for var, val in breaks_adj.items() if len(val) > 0] + [self.target]
         print("{} Features cant be binned".format(len([var for var, val in breaks_adj.items() if len(val) == 0])))
-        self.woes = sc.woebin(self.data[variables], y=self.target, breaks_list=breaks_adj, no_cores=no_cores,method=kwargs.get("method",
-                                                                                                                               None))
+        self.woes = sc.woebin(self.data[variables], y=self.target, breaks_list=breaks_adj, no_cores=no_cores,
+                              method=kwargs.get("method",
+                                                None))
         return self.woes
 
     def iv(self):
