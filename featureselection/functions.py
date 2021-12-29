@@ -16,7 +16,9 @@ from typing import List
 import numpy as np
 import scipy.stats as stats
 from sklearn.metrics import confusion_matrix
+import cupy as cp
 
+cp.cuda.set_allocator(None)  # Disable cache
 pd.options.mode.chained_assignment = None
 
 
@@ -175,6 +177,36 @@ def correlation_filter(data: DataFrame, features: List, params: dict):
 
 
 @curry
+def correlation_filter_cupy(data: DataFrame, features: List, params: dict):
+    target = params["target"]
+    coef_numerical = params.get("coef_numerical", 0.6)
+    percentage_numerical = params.get("percentage_numerical", 0.5)
+    real_columns, categorical_columns, binary_columns = get_feature_type(data, features)
+
+    def aux(data, columns, target, coef, percentage):
+        if len(columns) > 1:
+            corxy_dict = corr_xy(data, columns, target, types_columns="numeric", n_jobs=7)
+            order_list = [x[0] for x in sorted(corxy_dict.items(), key=lambda x: x[1], reverse=True)]
+            cor_matrix = corr_matrix_cupy(data, columns)
+            sc = StatisticalSelector(data, target).correlation_selector(corr_matrix=cor_matrix,
+                                                                        order_list=order_list,
+                                                                        coef=coef,
+                                                                        percentage=percentage)
+            return sc["selected_features"]
+        else:
+            return columns
+
+    approved_numerical = aux(data, real_columns, target, coef_numerical, percentage_numerical)
+
+    approved = approved_numerical
+    not_approved = list(set(features) - set(approved))
+    return data, approved, not_approved, {
+        "correlation_filter": {"approved": approved,
+                               "not_approved": not_approved}
+    }
+
+
+@curry
 def feature_importance_filter(data: DataFrame, features: List, params: dict):
     fs = FeatureSelector(data=data[features],
                          labels=data[params["target"]],
@@ -211,6 +243,10 @@ def corr_matrix(df: pd.DataFrame, features: List[str], types_columns: str = "num
             corr_matrix[col2][col1] = corr_matrix[col1][col2]
             corr_matrix[col2][col2] = 1
     return corr_matrix
+
+
+def corr_matrix_cupy(df: pd.DataFrame, features: List[str]):
+    return pd.DataFrame(cp.corrcoef(df[features].T.values), columns=features)
 
 
 def pearson(x, y):
