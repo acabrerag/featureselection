@@ -309,7 +309,7 @@ class Binning():
                 raise NotImplementedError('%s method has not been run for categorical features.' % method)
 
         elif method == "scorecardpy":
-            print(len(variables),method,no_cores)
+            print(len(variables), method, no_cores)
             output_bins = sc.woebin(self.data[variables + [self.target]], y=[self.target], no_cores=no_cores)
             output_bins = {k: v["breaks"] for k, v in output_bins.items()}
         elif method == "monotonic_binning":
@@ -335,7 +335,7 @@ class Binning():
         no_cores = kwargs.get("no_cores", None)
         if breaks_adj is None:
             if self.bins is None:
-                self.binning(no_cores=no_cores, method=kwargs.get("method", "scorecardpy"), **kwargs)
+                self.binning(no_cores=no_cores, **kwargs)
             breaks_adj = self.bins
         variables = [var for var, val in breaks_adj.items() if len(val) > 0] + [self.target]
         print("{} Features cant be binned".format(len([var for var, val in breaks_adj.items() if len(val) == 0])))
