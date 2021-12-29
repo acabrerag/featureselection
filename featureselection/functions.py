@@ -8,9 +8,9 @@ from toolz import curry
 from tsfresh.utilities.dataframe_functions import impute_dataframe_range, get_range_values_per_column
 from varclushi import VarClusHi
 
-from scorecard import ScorecardSelector
-from statistical_selector import StatisticalSelector
-from feature_selector import FeatureSelector
+from .scorecard import ScorecardSelector
+from .statistical_selector import StatisticalSelector
+from .feature_selector import FeatureSelector
 from itertools import combinations
 from typing import List
 import numpy as np
