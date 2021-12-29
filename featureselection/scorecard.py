@@ -333,7 +333,7 @@ class Binning():
         no_cores = kwargs.get("no_cores", None)
         if breaks_adj is None:
             if self.bins is None:
-                self.binning(no_cores=no_cores, **kwargs)
+                self.binning(no_cores=no_cores,method=kwargs.get("method","scorecardpy"), **kwargs)
             breaks_adj = self.bins
         variables = [var for var, val in breaks_adj.items() if len(val) > 0] + [self.target]
         print("{} Features cant be binned".format(len([var for var, val in breaks_adj.items() if len(val) == 0])))
