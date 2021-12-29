@@ -287,6 +287,7 @@ class Binning():
         method: "optbinning","scorecardpy", "xverse" (Only for numerical features)
         Returns a dict with the breaks for each feature.
         """
+        print(f"selected method: {method}")
         output_bins = {}
         if variables is None:
             variables = self.features

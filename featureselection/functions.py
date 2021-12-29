@@ -87,7 +87,8 @@ def statistical_test(data: DataFrame, features: List, params: dict):
 @curry
 def information_value_filter(data: DataFrame, features: List, params: dict):
     sc = ScorecardSelector(data, features=features, target=params["target"])
-    approved = sc.filter(elements=features, iv_limit=params.get("iv_limit", 0.25), missing_limit=1, identical_limit=1)
+    approved = sc.filter(elements=features, iv_limit=params.get("iv_limit", 0.25), missing_limit=1, identical_limit=1,
+                         method=params["method"])
     not_approved = list(set(features) - set(approved))
 
     return data, approved, not_approved, {
