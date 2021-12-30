@@ -110,7 +110,9 @@ def pps_filter(data: DataFrame, features: List, params: dict):
 
     results = sorted(results, key=lambda i: i['ppscore'], reverse=True)
     DataFrame(results).to_csv(params.get("output_dir", "../data/") + "pps.csv", index=False)
-    approved = list(map(lambda x: x['x'], filter(lambda x: x['ppscore'] >= params.get("threshold", 0.01), results)))
+    approved = list(map(lambda x: x['x'],
+                        filter(lambda x: x['ppscore'] >= params.get("threshold", 0.01) or np.isnan(x['ppscore']),
+                               results)))
     not_approved = list(set(features) - set(approved))
 
     return data, approved, not_approved, {
