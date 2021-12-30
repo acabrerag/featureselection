@@ -245,7 +245,7 @@ def corr_matrix(df: pd.DataFrame, features: List[str], types_columns: str = "num
 
 
 def corr_matrix_cupy(df: pd.DataFrame, features: List[str]):
-    return pd.DataFrame(np.corrcoef(df[features].T.values), columns=features, index=features)
+    return pd.DataFrame(np.corrcoef(df[features].replace([np.inf, -np.inf], np.nan).fillna(0).values, rowvar=False), columns=features, index=features)
 
 
 def pearson(x, y):
