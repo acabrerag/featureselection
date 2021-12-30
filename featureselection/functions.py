@@ -154,7 +154,7 @@ def correlation_filter(data: DataFrame, features: List, params: dict):
     def aux(data, columns, target, types_columns, coef, percentage, n_jobs):
         if len(columns) > 1:
             corxy_dict = corr_xy(data, columns, target, types_columns=types_columns, n_jobs=n_jobs)
-            order_list = [x[0] for x in sorted(corxy_dict.items(), key=lambda x: x[1], reverse=True)]
+            order_list = [x[0] for x in sorted(corxy_dict.items(), key=lambda x: abs(x[1]), reverse=True)]
             cor_matrix = corr_matrix(data, columns, types_columns, n_jobs=n_jobs)
             sc = StatisticalSelector(data, target).correlation_selector(corr_matrix=cor_matrix,
                                                                         order_list=order_list,
