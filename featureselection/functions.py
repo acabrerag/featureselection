@@ -184,7 +184,7 @@ def correlation_filter_cupy(data: DataFrame, features: List, params: dict):
 
     def aux(data, columns, target, coef, percentage):
         if len(columns) > 1:
-            corxy_dict = corr_xy(data, columns, target, types_columns="numeric", n_jobs=7)
+            corxy_dict = corr_xy(data, columns, target, types_columns="numerical", n_jobs=7)
             order_list = [x[0] for x in sorted(corxy_dict.items(), key=lambda x: x[1], reverse=True)]
             cor_matrix = corr_matrix_cupy(data, columns)
             sc = StatisticalSelector(data, target).correlation_selector(corr_matrix=cor_matrix,
